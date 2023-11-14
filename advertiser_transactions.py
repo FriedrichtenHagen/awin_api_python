@@ -65,7 +65,8 @@ def update_bigquery(df):
 
         # Convert 'date' column to datetime if not already
         df['transactionDate'] = pd.to_datetime(df['transactionDate'])
-
+        # Replace dots in column names with underscores
+        df.columns = [col.replace('.', '_') for col in df.columns]
         # Fetch existing data from BigQuery
         try:
             existing_data = client.query(f'SELECT * FROM `{PROJECT_ID}.{DATASET_ID}.{TABLE_ID}`').to_dataframe()
@@ -73,17 +74,27 @@ def update_bigquery(df):
             print(f"Error fetching existing data from BigQuery: {e}")
             existing_data = pd.DataFrame()
 
-        # Identify new transactions and changed rows
-        new_data = df[~df['id'].isin(existing_data['id'])]
-        changed_data = df[df['id'].isin(existing_data['id'])]
-        print(df.columns)
 
-        # Update existing rows
-        for idx, row in changed_data.iterrows():
-            existing_row = existing_data[existing_data['id'] == row['id']]
-            if not existing_row.empty:
-                # Update existing row with new data
-                existing_data.loc[existing_row.index] = row
+
+
+        # print(df.columns)
+        # print(existing_data.columns)
+
+        # Identify new transactions and changed rows
+        if not existing_data.empty:
+            new_data = df[~df['id'].isin(existing_data['id'])]
+            changed_data = df[df['id'].isin(existing_data['id'])]
+
+            # Update existing rows
+            for idx, row in changed_data.iterrows():
+                existing_row = existing_data[existing_data['id'] == row['id']]
+                if not existing_row.empty:
+                    # Update existing row with new data
+                    existing_data.loc[existing_row.index] = row
+        else:
+            # If existing_data is empty, consider all data as new
+            new_data = df.copy()
+            changed_data = pd.DataFrame() 
 
         # Append new rows
         updated_data = pd.concat([existing_data, new_data], ignore_index=True, sort=False)
@@ -91,7 +102,11 @@ def update_bigquery(df):
         # Update BigQuery
         if not updated_data.empty:
             client.load_table_from_dataframe(updated_data, table_ref, job_config=bigquery.LoadJobConfig(autodetect=True, create_disposition='CREATE_IF_NEEDED')).result()
-
+            num_rows = df.shape[0]
+            num_columns = df.shape[1]
+            print(f'Number of rows updated: {num_rows}. \n Number of columns: {num_columns}')
+        else:
+            print('No rows were updated.')
     except Exception as e:
         raise RuntimeError(f"Error updating BigQuery table: {e}")
     
