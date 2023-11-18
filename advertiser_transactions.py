@@ -74,23 +74,45 @@ def update_bigquery(df):
             print(f"Error fetching existing data from BigQuery: {e}")
             existing_data = pd.DataFrame()
 
-
-
-
-        # print(df.columns)
-        # print(existing_data.columns)
-
         # Identify new transactions and changed rows
         if not existing_data.empty:
+            # rows with ids that do not currently exist in bq
             new_data = df[~df['id'].isin(existing_data['id'])]
+            # rows that exist in bq. These will be overwritten. 
             changed_data = df[df['id'].isin(existing_data['id'])]
 
             # Update existing rows
             for idx, row in changed_data.iterrows():
                 existing_row = existing_data[existing_data['id'] == row['id']]
                 if not existing_row.empty:
+                    print(f"existing_row.index length: {len(existing_row.index)}")
+                    print(f"row length: {len(row)}")
+
+                    # Ensure that 'row' is in the same shape as 'existing_row'
+                    row_as_dataframe = pd.DataFrame(row).transpose()
+                    print(f"existing_row.index length: {len(existing_row.index)}")
+                    print(f"row_as_dataframe length: {len(row_as_dataframe)}")
+                    
+                    # print(existing_data.loc[existing_row.index])
+                    # print(row_as_dataframe.iloc[0])
+                     # Convert data types to match existing_row
+                    row_as_dataframe = row_as_dataframe.astype(existing_row.dtypes.to_dict())
+
+                    # Set the index to match existing_row
+                    row_as_dataframe.index = existing_row.index
+                    # Debugging print statements
+                    # print("existing_row.columns:", existing_row.columns)
+                    # print("row_as_dataframe.columns:", row_as_dataframe.columns)
+                    # print("existing_row.values:", existing_row.values)
+                    # print("row_as_dataframe.values:", row_as_dataframe.values)
+
+
+                    existing_data.at[existing_row.index[0], :] = row_as_dataframe.iloc[0].values
+
+
+
                     # Update existing row with new data
-                    existing_data.loc[existing_row.index] = row
+                    # existing_data.loc[existing_row.index] = row
         else:
             # If existing_data is empty, consider all data as new
             new_data = df.copy()
