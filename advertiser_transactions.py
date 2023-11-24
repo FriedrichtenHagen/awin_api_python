@@ -84,6 +84,7 @@ def update_bigquery(df):
             # Update existing rows
             for idx, row in changed_data.iterrows():
                 existing_row = existing_data[existing_data['id'] == row['id']]
+                # the matching existing row is not empty
                 if not existing_row.empty:
                     print(f"existing_row.index length: {len(existing_row.index)}")
                     print(f"row length: {len(row)}")
@@ -98,19 +99,10 @@ def update_bigquery(df):
 
                     # Set the index to match existing_row
                     row_as_dataframe.index = existing_row.index
-                    # Debugging print statements
-                    # print("existing_row.columns:", existing_row.columns)
-                    # print("row_as_dataframe.columns:", row_as_dataframe.columns)
-                    # print("existing_row.values:", existing_row.values)
-                    # print("row_as_dataframe.values:", row_as_dataframe.values)
 
-
-                    existing_data.at[existing_row.index[0], :] = row_as_dataframe.iloc[0].values
-
-
-
-                    # Update existing row with new data
-                    # existing_data.loc[existing_row.index] = row
+                    # update each column of the existing row
+                    for col in existing_data.columns:
+                                existing_data.at[existing_row.index[0], col] = row_as_dataframe[col].iloc[0]
         else:
             # If existing_data is empty, consider all data as new
             new_data = df.copy()
