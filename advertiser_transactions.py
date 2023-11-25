@@ -4,7 +4,8 @@ from dotenv import load_dotenv
 import json
 import pandas as pd
 from google.cloud import bigquery
-from datetime import datetime, timedelta
+from datetime import date, timedelta
+
 # Load environment variables from the .env file
 load_dotenv()
 
@@ -14,8 +15,15 @@ ADVERTISER_ID = os.getenv("ADVERTISER_ID")
 
 # function to access awin api
 def fetch_data():
-    start_date = '2023-11-01' # T00%3A00%3A00
-    end_date = '2023-11-15' # T01%3A59%3A59
+
+    end_date = date.today()
+    start_date = end_date - timedelta(days=30)
+    print("End Date:", end_date)
+    print("Start Date:", start_date)
+
+
+    # start_date = '2023-11-01' # T00%3A00%3A00
+    # end_date = '2023-11-15' # T01%3A59%3A59
 
     # template url
     # https://api.awin.com/advertisers/<yourAdvertiserId>/transactions/?startDate=yyyy-MM-ddThh%3Amm%3Ass&endDate=yyyy-MM-ddThh%3Amm%3Ass&timezone=UTC&dateType=transaction&status=pending&publisherId=<publisherIdForWhichToFilter>
@@ -39,7 +47,7 @@ def fetch_data():
         df.sort_values(by='transactionDate', inplace=True, ascending=False)
         # Display the DataFrame
         awin_df = df[['id', 'transactionDate', 'voucherCode', 'url', 'saleAmount.amount', 'commissionAmount.amount', 'commissionStatus']]
-        print(awin_df)
+        # print(awin_df)
 
         return awin_df
     else:
@@ -86,13 +94,13 @@ def update_bigquery(df):
                 existing_row = existing_data[existing_data['id'] == row['id']]
                 # the matching existing row is not empty
                 if not existing_row.empty:
-                    print(f"existing_row.index length: {len(existing_row.index)}")
-                    print(f"row length: {len(row)}")
+                    # print(f"existing_row.index length: {len(existing_row.index)}")
+                    # print(f"row length: {len(row)}")
 
                     # Ensure that 'row' is in the same shape as 'existing_row'
                     row_as_dataframe = pd.DataFrame(row).transpose()
-                    print(f"existing_row.index length: {len(existing_row.index)}")
-                    print(f"row_as_dataframe length: {len(row_as_dataframe)}")
+                    # print(f"existing_row.index length: {len(existing_row.index)}")
+                    # print(f"row_as_dataframe length: {len(row_as_dataframe)}")
 
                      # Convert data types to match existing_row
                     row_as_dataframe = row_as_dataframe.astype(existing_row.dtypes.to_dict())
@@ -116,13 +124,10 @@ def update_bigquery(df):
 
         # Update BigQuery
         if not updated_data.empty:
-            # client.load_table_from_dataframe(updated_data, table_ref, job_config=bigquery.LoadJobConfig(autodetect=True, create_disposition='CREATE_IF_NEEDED'), write_disposition='WRITE_TRUNCATE').result()
-
             
-            ### alternative: create staging table and then replace existing table
-            # Load data into a temporary table
-
-            # The temporary table name is hardcoded as 'temp_table'. If you're running this script concurrently or periodically, you might want to generate a unique name for the temporary table to avoid conflicts.
+            # create staging table and then replace existing table
+            # The temporary table name is hardcoded as 'temp_table'. If you're running this script concurrently
+            # or periodically, you might want to generate a unique name for the temporary table to avoid conflicts.
             temp_table_ref = client.dataset(DATASET_ID).table('temp_table')
             job_config = bigquery.LoadJobConfig(
                 autodetect=True,
@@ -145,14 +150,6 @@ def update_bigquery(df):
             print(f'Number of rows updated: {num_rows}. \n Number of columns: {num_columns}')
         else:
             print('No rows were updated.')
-
-
-
-
-
-
-
-
     except Exception as e:
         raise RuntimeError(f"Error updating BigQuery table: {e}")
     
