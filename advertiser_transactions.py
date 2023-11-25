@@ -108,17 +108,45 @@ def update_bigquery(df):
             new_data = df.copy()
             changed_data = pd.DataFrame() 
 
+        # do a check for the amount of rows replaced and added
+        print(f'rows updated: {existing_data.shape[0]}')
+        print(f'rows added: {new_data}')
         # Append new rows
         updated_data = pd.concat([existing_data, new_data], ignore_index=True, sort=False)
 
         # Update BigQuery
         if not updated_data.empty:
-            client.load_table_from_dataframe(updated_data, table_ref, job_config=bigquery.LoadJobConfig(autodetect=True, create_disposition='CREATE_IF_NEEDED')).result()
-            num_rows = df.shape[0]
-            num_columns = df.shape[1]
+            client.load_table_from_dataframe(updated_data, table_ref, job_config=bigquery.LoadJobConfig(autodetect=True, create_disposition='CREATE_IF_NEEDED'), write_disposition='WRITE_TRUNCATE').result()
+            num_rows = updated_data.shape[0]
+            num_columns = updated_data.shape[1]
             print(f'Number of rows updated: {num_rows}. \n Number of columns: {num_columns}')
         else:
             print('No rows were updated.')
+
+
+
+        ### alternative: create staging table and then replace existing table
+        # Load data into a temporary table
+        temp_table_ref = client.dataset(DATASET_ID).table('temp_table')
+        job_config = bigquery.LoadJobConfig(
+            autodetect=True,
+            create_disposition='CREATE_IF_NEEDED',
+            write_disposition='WRITE_TRUNCATE'  # This overwrites the existing data
+        )
+
+        client.load_table_from_dataframe(updated_data, temp_table_ref, job_config=job_config).result()
+
+        # Use a SQL query to overwrite the target table from the temporary table
+        sql = f"""
+            CREATE OR REPLACE TABLE `{PROJECT_ID}.{DATASET_ID}.{TABLE_ID}` AS
+            SELECT * FROM `{PROJECT_ID}.{DATASET_ID}.temp_table`
+        """
+
+        client.query(sql).result()
+
+
+
+
     except Exception as e:
         raise RuntimeError(f"Error updating BigQuery table: {e}")
     
