@@ -15,7 +15,7 @@ ADVERTISER_ID = os.getenv("ADVERTISER_ID")
 # function to access awin api
 def fetch_data():
     start_date = '2023-11-01' # T00%3A00%3A00
-    end_date = '2023-11-12' # T01%3A59%3A59
+    end_date = '2023-11-15' # T01%3A59%3A59
 
     # template url
     # https://api.awin.com/advertisers/<yourAdvertiserId>/transactions/?startDate=yyyy-MM-ddThh%3Amm%3Ass&endDate=yyyy-MM-ddThh%3Amm%3Ass&timezone=UTC&dateType=transaction&status=pending&publisherId=<publisherIdForWhichToFilter>
@@ -116,7 +116,30 @@ def update_bigquery(df):
 
         # Update BigQuery
         if not updated_data.empty:
-            client.load_table_from_dataframe(updated_data, table_ref, job_config=bigquery.LoadJobConfig(autodetect=True, create_disposition='CREATE_IF_NEEDED'), write_disposition='WRITE_TRUNCATE').result()
+            # client.load_table_from_dataframe(updated_data, table_ref, job_config=bigquery.LoadJobConfig(autodetect=True, create_disposition='CREATE_IF_NEEDED'), write_disposition='WRITE_TRUNCATE').result()
+
+            
+            ### alternative: create staging table and then replace existing table
+            # Load data into a temporary table
+
+            # The temporary table name is hardcoded as 'temp_table'. If you're running this script concurrently or periodically, you might want to generate a unique name for the temporary table to avoid conflicts.
+            temp_table_ref = client.dataset(DATASET_ID).table('temp_table')
+            job_config = bigquery.LoadJobConfig(
+                autodetect=True,
+                create_disposition='CREATE_IF_NEEDED',
+                write_disposition='WRITE_TRUNCATE'  # This overwrites the existing data
+            )
+
+            client.load_table_from_dataframe(updated_data, temp_table_ref, job_config=job_config).result()
+
+            # Use a SQL query to overwrite the target table from the temporary table
+            sql = f"""
+                CREATE OR REPLACE TABLE `{PROJECT_ID}.{DATASET_ID}.{TABLE_ID}` AS
+                SELECT * FROM `{PROJECT_ID}.{DATASET_ID}.temp_table`
+            """
+
+            client.query(sql).result()
+            
             num_rows = updated_data.shape[0]
             num_columns = updated_data.shape[1]
             print(f'Number of rows updated: {num_rows}. \n Number of columns: {num_columns}')
@@ -125,24 +148,7 @@ def update_bigquery(df):
 
 
 
-        ### alternative: create staging table and then replace existing table
-        # Load data into a temporary table
-        temp_table_ref = client.dataset(DATASET_ID).table('temp_table')
-        job_config = bigquery.LoadJobConfig(
-            autodetect=True,
-            create_disposition='CREATE_IF_NEEDED',
-            write_disposition='WRITE_TRUNCATE'  # This overwrites the existing data
-        )
 
-        client.load_table_from_dataframe(updated_data, temp_table_ref, job_config=job_config).result()
-
-        # Use a SQL query to overwrite the target table from the temporary table
-        sql = f"""
-            CREATE OR REPLACE TABLE `{PROJECT_ID}.{DATASET_ID}.{TABLE_ID}` AS
-            SELECT * FROM `{PROJECT_ID}.{DATASET_ID}.temp_table`
-        """
-
-        client.query(sql).result()
 
 
 
