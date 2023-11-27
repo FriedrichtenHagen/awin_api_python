@@ -13,6 +13,7 @@ import pandas as pd
 import requests
 import os
 from dotenv import load_dotenv
+import time
 
 # Load environment variables from the .env file
 load_dotenv()
@@ -64,7 +65,8 @@ def loop_api_calls():
     for i in range(number_of_necessary_api_calls):
         if i % 20 == 0 and i != 0:
             # pause every 20 API calls for 1 minute?
-            print('theoretical pause')
+            print('Pause for 60seconds')
+            time.sleep(60)
         # last api call. Uses less than 31 days
         if(days_for_last_api_call and i == number_of_necessary_api_calls-1):
             start_date = total_start_date + (i)*timedelta(days=32)
@@ -74,15 +76,9 @@ def loop_api_calls():
             start_date = total_start_date + i*timedelta(days=32)
             end_date = start_date + timedelta(days=31)
         print(start_date, end_date)
-
-
-        # is there overlap between the different time frames??
-        # set times to cover whole day
-        # adjust 
-
-
-        newest_dataframe = fetch_data(start_date, end_date)
         
+        newest_dataframe = fetch_data(start_date, end_date)
+
         result_df = pd.concat([result_df, newest_dataframe], ignore_index=True)
         print(f"Shape of result_df: {result_df.shape}")
 
