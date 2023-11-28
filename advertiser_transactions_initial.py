@@ -10,8 +10,6 @@
 from datetime import date, timedelta, datetime
 import math
 import pandas as pd
-import requests
-import os
 from dotenv import load_dotenv
 import time
 from update_bigquery import update_bigquery
@@ -21,12 +19,10 @@ load_dotenv()
 
 def loop_api_calls():
 
-    # going back 2 years as a standard time frame would make more sense
-    total_start_date_str = '2021-01-01'
-    total_start_date = datetime.strptime(total_start_date_str, '%Y-%m-%d').date()
-
-    
     total_end_date = date.today()
+    # going back 2 years as a standard time frame 
+    total_start_date = total_end_date - timedelta(days=365 * 2)
+
     total_date_difference = (total_end_date - total_start_date).days
     number_of_necessary_api_calls = math.ceil(total_date_difference/32)
     days_for_last_api_call = total_date_difference % 32
