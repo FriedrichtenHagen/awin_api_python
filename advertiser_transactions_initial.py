@@ -51,7 +51,6 @@ def loop_api_calls():
         print(f"Shape of result_df: {result_df.shape}")
 
     print(result_df)
-    result_df.to_csv('output.csv', index=False)
     update_bigquery(result_df)
 
 
